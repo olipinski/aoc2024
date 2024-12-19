@@ -1,8 +1,9 @@
 import copy
+import os
 from collections import defaultdict
 
 import numpy as np
-from tqdm import tqdm
+from joblib import Parallel, delayed
 
 
 def part1(lines):
@@ -27,11 +28,6 @@ def part1(lines):
         elif map[next][start[1]] == "." or map[next][start[1]] == "X":
             map[start[0]][start[1]] = "X"
             map[next][start[1]] = "^"
-
-        # os.system('cls' if os.name == 'nt' else 'clear')
-        # for line in map.tolist():
-        #     print(line)
-        # time.sleep(1)
 
     return np.sum(map == "X")
 
@@ -71,10 +67,8 @@ def part2(lines):
     path = list(zip(x.tolist(), y.tolist()))
     path.remove((init_start[0], init_start[1]))
 
-    inf_loops = 0
-
-    for point in tqdm(path, desc="Evaluating possible obstacles"):
-        new_map = copy.deepcopy(init_map)
+    def check_for_inf_loop(map, point):
+        new_map = copy.deepcopy(map)
         new_map[point[0]][point[1]] = "#"
         rotations = 0
         visited = defaultdict(int)
@@ -84,14 +78,13 @@ def part2(lines):
 
             # check for inf loop
             if visited[(start[0], start[1], rotations)] >= 5:
-                inf_loops += 1
-                break
+                return 1
             else:
                 visited[(start[0], start[1], rotations)] += 1
 
             next = start[0] - 1
             if next == -1:
-                break
+                return 0
             if new_map[next][start[1]] == "#":
                 new_map = np.rot90(new_map)
                 rotations += 1
@@ -100,9 +93,11 @@ def part2(lines):
                 new_map[start[0]][start[1]] = "."
                 new_map[next][start[1]] = "^"
 
-        del new_map
+    res = Parallel(n_jobs=os.cpu_count(), verbose=3)(
+        delayed(check_for_inf_loop)(init_map, point) for point in path
+    )
 
-    return inf_loops
+    return sum(res)
 
 
 if __name__ == "__main__":
